@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+  <title>AR Vizitka — Cottage demo (single file)</title>
+  <!-- MindAR + Three.js CDNs -->
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
+  <style>
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    #ar-container{position:relative;width:100%;height:100vh;background:#000}
+    #ui{position:absolute;left:12px;top:12px;color:#fff;z-index:3}
+    #qr-hint{position:absolute;right:12px;bottom:12px;background:rgba(255,255,255,0.9);padding:8px;border-radius:6px;z-index:3}
+    .note{background:rgba(0,0,0,0.45);padding:6px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div id="ar-container">
+    <div id="ui"><div class="note">Otočte telefon na vizitku, povolte kameru.</div></div>
+    <div id="qr-hint">QR na kartě otevírá tuto stránku</div>
+    <div id="mindar-container"></div>
+  </div>
+
+  <script>
+    // =========  INSTRUKCE (přečtěte si v komentářích níže) =========
+    // Tento jednosouborový demo web počítá s tím, že vygenerujete MindAR image-target
+    // dataset (soubor .mind) založený na grafice "obrys chaty" která bude vytištěna
+    // na vizitce. QR kód na vizitce směřuje na URL, kde tento soubor hostujete.
+    // Kroky zkráceně:
+    // 1) Připravte obrázek obrysu (vysoký kontrast, detaily) -> např. cottage_print.jpg
+    // 2) Použijte MindAR target generator (viz dokumentace MindAR) k vytvoření .mind souboru
+    // 3) Nahrajte .mind + tuto HTML na hosting (HTTPS) a vytvořte QR kód na URL
+    // 4) Umístěte QR mimo obraz-target (např. roh vizitky), přidejte malé registrační markery
+    //    (např. 4 rohové body) pokud chcete stabilnější detekci.
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // MindAR three setup
+      const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        container: document.body,
+        imageTargetSrc: './targets.mind', // <-- nahraďte vlastním .mind datasetem
+        maxTrack: 1,
+      });
+
+      const {renderer, scene, camera} = mindarThree;
+
+      // světlo
+      const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+      scene.add(light);
+
+      // anchor: připojí 3D objekt k nalezenému targetu (obrys chaty)
+      const anchor = mindarThree.addAnchor(0);
+
+      // příklad: jednoduchý 3D box přizpůsobený obrysu
+      const boxGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+      const boxMat = new THREE.MeshStandardMaterial({metalness:0.3, roughness:0.6});
+      const box = new THREE.Mesh(boxGeo, boxMat);
+      box.position.set(0, 0.25, 0); // posuňte podle potřeby
+      anchor.group.add(box);
+
+      // nebo načtení GLTF modelu (více realistické)
+      const loader = new THREE.GLTFLoader();
+      // Nahraďte 'model.glb' svou URL k modelu (hostováno spolu s targets.mind)
+      loader.load('./model.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(0.12,0.12,0.12);
+        model.position.set(0,0,0);
+        anchor.group.add(model);
+      }, undefined, (err)=>{console.warn('GLTF load error', err);});
+
+      // start AR
+      await mindarThree.start();
+
+      // render loop
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
+
+      // fallback: stop kamera při odchodu
+      window.addEventListener('beforeunload', async () => { await mindarThree.stop(); });
+    });
+  </script>
+
+  <!-- ========== DŮLEŽITÉ TIPY PRO TISK A DESIGN VIZITKY ========== -->
+  <!--
+  - TARGET OBRÁZEK: vyberte část vizitky (např. centrální ilustraci chaty) jako image-target.
+    Musí mít dostatek detailů a kontrastu (textury, komíny, okna), aby image tracking fungoval.
+  - QR KÓD: umístěte mimo target (okraj karty), s okrajem (quiet zone) 4-6 mm.
+  - REGISTRAČNÍ MARKERY: přidejte malé rohové body nebo tenké křížky mimo main target, pro
+    lepší zarovnání a pro případ, že tisk má nerovnosti.
+  - VELIKOST: MindAR funguje i s vizitkou ~85×55 mm, ale ujistěte se, že target je alespoň ~40×40 mm
+    v reálném světě, aby kamera mohla rozpoznat detaily.
+  - HOSTING: web a soubory musí být na HTTPS (mobilní kamery vyžadují secure context pro getUserMedia).
+  - BROWSER SUPPORT: MindAR funguje v moderních mobilních prohlížečích (Chrome, Safari recent). Pokud
+    prohlížeč nepodporuje camera API, nabídněte uživateli fallback stránku.
+  -->
+</body>
+</html>
