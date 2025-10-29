@@ -3,134 +3,76 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
-  <title>AR Vizitka – Chata</title>
+  <title>AR Vizitka — Chata</title>
 
-  <!-- Three.js + MindAR knihovny -->
+  <!-- knihovny -->
   <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
 
   <style>
     html, body {
-      height: 100%;
       margin: 0;
+      height: 100%;
       overflow: hidden;
-      font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial;
+      font-family: system-ui, sans-serif;
       background: #000;
+      color: #fff;
     }
-    #mindar-container {
+    #ar-container {
+      position: relative;
       width: 100%;
       height: 100vh;
-      position: relative;
-      overflow: hidden;
       background: #000;
+      overflow: hidden;
     }
-    #ui {
+    #info {
       position: absolute;
-      top: 12px;
-      left: 12px;
-      color: white;
-      z-index: 5;
-      background: rgba(0,0,0,0.5);
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
       padding: 6px 10px;
-      border-radius: 6px;
-    }
-    #qr-hint {
-      position: absolute;
-      right: 12px;
-      bottom: 12px;
-      background: rgba(255,255,255,0.9);
-      color: #000;
-      padding: 8px;
-      border-radius: 6px;
-      z-index: 5;
-      font-size: 14px;
-    }
-    #error-msg {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.8);
-      color: #fff;
-      padding: 20px;
       border-radius: 8px;
-      text-align: center;
-      width: 80%;
-      max-width: 400px;
-      display: none;
-      z-index: 10;
+      font-size: 14px;
+      z-index: 3;
     }
   </style>
 </head>
 <body>
-  <div id="mindar-container">
-    <div id="ui">Namiřte kameru na vizitku s chatou a povolte přístup ke kameře.</div>
-    <div id="qr-hint">QR kód na kartě otevírá tuto stránku</div>
-    <div id="error-msg"></div>
+  <div id="ar-container">
+    <div id="info">Namiřte kameru na obrázek chaty</div>
   </div>
 
   <script>
-    async function startAR() {
-      try {
-        // Inicializace MindAR
-        const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-          container: document.querySelector('#mindar-container'),
-          imageTargetSrc: './targets.mind',
-          maxTrack: 1,
-        });
+    document.addEventListener('DOMContentLoaded', async () => {
+      const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        container: document.querySelector('#ar-container'),
+        imageTargetSrc: './targets.mind', // vytvořený z mapping.png
+      });
 
-        const { renderer, scene, camera } = mindarThree;
+      const { renderer, scene, camera } = mindarThree;
 
-        // Světlo
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-        scene.add(hemiLight);
+      // světlo
+      const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+      scene.add(light);
 
-        // Anchor pro model
-        const anchor = mindarThree.addAnchor(0);
+      // anchor
+      const anchor = mindarThree.addAnchor(0);
 
-        // Načtení modelu
-        const loader = new THREE.GLTFLoader();
-        loader.load('./chata.glb', (gltf) => {
-          const model = gltf.scene;
-          model.scale.set(0.15, 0.15, 0.15);
-          model.position.set(0, 0, 0);
-          model.rotation.y = Math.PI;
-          anchor.group.add(model);
-        }, undefined, (err) => {
-          console.warn('Chyba při načítání GLB modelu:', err);
-        });
+      // načti 3D model chaty
+      const loader = new THREE.GLTFLoader();
+      loader.load('./chata.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(0.12, 0.12, 0.12);
+        model.position.set(0, 0, 0);
+        anchor.group.add(model);
+      });
 
-        // Spuštění kamery a renderu
-        await mindarThree.start();
-
-        renderer.setAnimationLoop(() => {
-          renderer.render(scene, camera);
-        });
-
-      } catch (err) {
-        console.error('Chyba při inicializaci AR nebo kameře:', err);
-        const msg = document.getElementById('error-msg');
-        msg.style.display = 'block';
-
-        if (location.protocol !== 'https:') {
-          msg.innerHTML = 'Tato stránka musí běžet přes <b>HTTPS</b>.<br>Aktuálně používáš: ' + location.protocol;
-        } else if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-          msg.innerHTML = 'Přístup ke kameře byl zamítnut.<br>Zkontroluj oprávnění pro kameru v nastavení prohlížeče.';
-        } else {
-          msg.innerHTML = 'Nepodařilo se spustit kameru nebo AR systém.<br>Ověř, že máš moderní prohlížeč a HTTPS.';
-        }
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', startAR);
+      await mindarThree.start();
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
+    });
   </script>
-
-  <!--
-    ▫ Soubor mapping.png použij pro vytvoření targets.mind (pomocí MindAR image generatoru).
-    ▫ Nahraj index.html, chata.glb, mapping.png a targets.mind na HTTPS hosting.
-    ▫ QR kód na vizitce musí směřovat na tuto stránku.
-    ▫ Testuj v mobilním Chrome nebo Safari s povolenou kamerou.
-  -->
 </body>
 </html>
